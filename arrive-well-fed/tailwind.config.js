@@ -4,21 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Diner-menu palette — warm + slightly retro (per SPEC §5)
-        cream: '#fdf6e3',
-        butter: '#f5d68a',
-        tomato: '#d94f3a',
-        ketchup: '#a82d1d',
-        mustard: '#c98c25',
-        olive: '#4a5d2f',
-        ink: '#2b2118',
+        // Arrive brand palette — semantic tokens kept; values remapped to Arrive system
+        cream: '#F9F5F4',   // Arrive Off-White — primary light background
+        butter: '#FFADE4',  // P4 Very Light Pink — soft accent / chef-note tint
+        tomato: '#5F016F',  // P1 Deep Purple — primary CTA, brand accent
+        ketchup: '#38003D', // Purple-900 — primary dark, hover, display headlines
+        mustard: '#FF80D4', // P3 Light Pink — secondary accent / carbs in macro bar
+        olive: '#8704AF',   // Purple-700 — tertiary / fat in macro bar
+        ink: '#201E1D',     // Arrive Neutral-900
       },
       fontFamily: {
-        display: ['"Bree Serif"', 'Georgia', 'serif'],
-        body: ['"Inter"', 'system-ui', 'sans-serif'],
+        display: ['"Urbanist"', '"DM Sans"', 'system-ui', 'sans-serif'],
+        body: ['"DM Sans"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 24px 60px -20px rgba(43,33,24,0.45)',
+        card: '0 24px 60px -20px rgba(56,0,61,0.35)',
       },
     },
   },

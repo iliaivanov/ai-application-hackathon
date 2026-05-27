@@ -10,8 +10,8 @@
   }
   body {
     background-image:
-      radial-gradient(circle at 12% 18%, rgba(217, 79, 58, 0.12) 0%, transparent 40%),
-      radial-gradient(circle at 88% 80%, rgba(201, 140, 37, 0.16) 0%, transparent 45%);
+      radial-gradient(circle at 12% 18%, rgba(95, 1, 111, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 88% 80%, rgba(255, 128, 212, 0.14) 0%, transparent 45%);
   }
   h1,
   h2,
