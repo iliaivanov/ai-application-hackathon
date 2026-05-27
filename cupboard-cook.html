@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cupboard Cook — Arrive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Urbanist:wght@500;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+            display: ['"Urbanist"', '"DM Sans"', 'sans-serif'],
+          },
+          colors: {
+            arrive: {
+              p1: '#5F016F',
+              'p1-700': '#8704AF',
+              'p1-900': '#38003D',
+              p2: '#FF33BB',
+              p3: '#FF80D4',
+              p4: '#FFADE4',
+              'p-100': '#FFE5F7',
+              'p-200': '#FFC7EC',
+              offwhite: '#F9F5F4',
+              ink: '#201E1D',
+              'ink-700': '#545050',
+              'ink-500': '#8D8786',
+              'ink-200': '#E3DFDD',
+              'ink-100': '#F9F5F4',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: 'DM Sans', system-ui, -apple-system, sans-serif; font-feature-settings: 'ss01', 'ss02'; }
+    h1, h2, h3, .font-display { font-family: 'Urbanist', 'DM Sans', sans-serif; letter-spacing: -0.01em; }
+  </style>
+</head>
+<body class="bg-arrive-offwhite text-arrive-ink">
+  <div id="root"></div>
+
+  <!--
+    Graceful local fallback: if window.claude.complete is missing (e.g. you opened
+    this file locally outside claude.ai), supply a deterministic mock so the UI is
+    still demoable. Inside a claude.ai artifact the real API is present and used.
+  -->
+  <script>
+    window.__CUPBOARD_COOK_MOCK__ = false;
+    window.claude = window.claude || {};
+    if (typeof window.claude.complete !== "function") {
+      window.__CUPBOARD_COOK_MOCK__ = true;
+      window.claude.complete = async function mockComplete(prompt) {
+        await new Promise((r) => setTimeout(r, 900));
+        const cupboardSection = prompt.split("cupboard:")[1] || "";
+        const ingredients = (cupboardSection.match(/- [^\n]+/g) || [])
+          .map((l) => l.replace(/^-\s*/, "").trim())
+          .slice(0, 8);
+        const recipe = {
+          name: "Mocked Cupboard Surprise",
+          intro: "Local mock response — paste this file into claude.ai for the real chef.",
+          ingredients: [
+            ...ingredients.map((it) => ({ item: it, amount: "a sensible amount", fromPantry: true })),
+            { item: "Salt", amount: "to taste", fromPantry: false },
+            { item: "Black pepper", amount: "a few grinds", fromPantry: false },
+          ],
+          steps: [
+            "Get a pan hot. Properly hot.",
+            "Add the main ingredients and let them sizzle.",
+            "Season aggressively.",
+            "Plate it. Eat it. Reflect.",
+          ],
+          timeMinutes: 20,
+          signoff: "Local mock — not the real chef.",
+        };
+        return JSON.stringify(recipe);
+      };
+    }
+  </script>
+
+  <script type="text/babel" data-presets="react">
+const { useState } = React;
+
+const PANTRY = {
+  Proteins: [
+    "Chicken breast", "Eggs", "Bacon", "Tuna (tin)", "Beef mince",
+    "Tofu", "Halloumi", "Prawns", "Salmon fillet", "Sausages",
+  ],
+  Vegetables: [
+    "Onion", "Garlic", "Carrots", "Potatoes", "Tomatoes",
+    "Spinach", "Broccoli", "Peppers", "Mushrooms", "Courgette", "Leeks",
+  ],
+  Carbs: [
+    "Rice", "Pasta", "Bread", "Noodles", "Couscous", "Tortilla wraps", "Oats", "Quinoa",
+  ],
+  Dairy: [
+    "Cheddar", "Parmesan", "Butter", "Milk", "Double cream",
+    "Greek yoghurt", "Feta", "Mozzarella",
+  ],
+  "Sauces & jars": [
+    "Olive oil", "Soy sauce", "Ketchup", "Dijon mustard", "Mayonnaise",
+    "Balsamic vinegar", "Honey", "Peanut butter", "Hot sauce", "Stock cubes",
+  ],
+  Spices: [
+    "Salt", "Black pepper", "Paprika", "Cumin", "Chilli flakes",
+    "Oregano", "Thyme", "Garam masala", "Cinnamon", "Curry powder",
+  ],
+  "Fresh herbs": [
+    "Parsley", "Basil", "Coriander", "Mint", "Rosemary", "Chives", "Lemon", "Lime",
+  ],
+  "The weird drawer": [
+    "Marshmallows", "Sriracha", "Anchovies", "Capers", "Pickles",
+    "Miso paste", "Gochujang", "Nutritional yeast", "Sauerkraut", "Dark chocolate",
+  ],
+};
+
+const PERSONAS = {
+  "Michelin Chef": {
+    emoji: "👨‍🍳",
+    tagline: "Three stars or three tears.",
+    prompt:
+      "You are a Michelin-starred head chef. You are exacting, technique-obsessed, and " +
+      "lightly contemptuous of shortcuts. You speak in precise culinary terms (deglaze, " +
+      "emulsify, brunoise, reduce). Dish names should sound like they belong on a tasting " +
+      "menu — French or Italian-leaning, never cute. You assume the cook has decent technique " +
+      "and you push them. Plating instructions matter. Never mention being an AI.",
+  },
+  "Granny Margaret": {
+    emoji: "👵",
+    tagline: "Don't faff about, love.",
+    prompt:
+      "You are Granny Margaret. You're warm, blunt, and have cooked dinner every night for " +
+      "fifty-odd years. You favour comfort food, one-pot dishes, and 'making do'. You call " +
+      "the cook 'love' or 'dear' occasionally — not every line. Dish names are honest and " +
+      "homely ('cheesy chicken bake', 'leftovers pie'). You suggest serving with a cuppa or " +
+      "a slice of bread to mop up. You think most recipes online have too many ingredients. " +
+      "Never mention being an AI.",
+  },
+  "Chaotic Gremlin": {
+    emoji: "👹",
+    tagline: "What if we just... ate it?",
+    prompt:
+      "You are a chaotic kitchen gremlin. You are unhinged but technically competent — the " +
+      "food has to actually be edible, you just have wild ideas about what to combine. You " +
+      "occasionally USE CAPS for emphasis. You refer to the dish as 'the slop', 'the situation', " +
+      "or 'the artefact'. You revel in pairing things that shouldn't go together but somehow " +
+      "work. Dish names are gleefully cursed ('Pickle Sriracha Carbonara', 'The Forbidden Bowl'). " +
+      "Steps are short, manic, and confident. Never mention being an AI.",
+  },
+  "TV Cooking Show Host": {
+    emoji: "📺",
+    tagline: "Wow, GUYS — look at that colour!",
+    prompt:
+      "You are the host of a high-energy daytime cooking show. You are performatively " +
+      "enthusiastic and address the cook as 'guys' or 'team'. You build small dramatic " +
+      "moments ('and here's where it gets really good...'). Dish names are catchy and " +
+      "audience-friendly ('30-Minute Magic Chicken', 'Speedy Veggie Bowl'). You drop in " +
+      "tips and asides between steps. You always end the recipe with a cheerful sign-off " +
+      "line. Never mention being an AI.",
+  },
+};
+
+const DEMO_SCENARIOS = [
+  { label: "Demo A — Sensible pantry", ingredients: ["Chicken breast", "Rice", "Garlic", "Lemon", "Olive oil", "Parsley"], persona: "Michelin Chef" },
+  { label: "Demo B — Same, gremlin remix", ingredients: ["Chicken breast", "Rice", "Garlic", "Lemon", "Olive oil", "Parsley"], persona: "Chaotic Gremlin" },
+  { label: "Demo C — Cursed cupboard", ingredients: ["Marshmallows", "Sriracha", "Noodles", "Peanut butter", "Soy sauce"], persona: "Granny Margaret" },
+];
+
+function buildPrompt({ ingredients, customItems, persona }) {
+  const all = [...ingredients, ...customItems.filter(Boolean)];
+  const list = all.length ? all.map((i) => `- ${i}`).join("\n") : "(nothing — they have empty cupboards)";
+  const p = PERSONAS[persona];
+  return `${p.prompt}
+
+The cook has these ingredients in their cupboard:
+${list}
+
+Generate a recipe they could realistically make. Lean on what they have; only add 2–3 common pantry extras (salt, oil, water) if truly needed.
+
+Respond with ONLY valid JSON. No preamble, no markdown fences, no commentary. Use exactly these keys:
+{
+  "name": "string — the dish name, in your persona's voice",
+  "intro": "string — one sentence introducing the dish, in your persona's voice",
+  "ingredients": [
+    { "item": "string", "amount": "string e.g. '200g' or 'a glug'", "fromPantry": true|false }
+  ],
+  "steps": ["string — one cooking step, no numbering prefix", "..."],
+  "timeMinutes": number,
+  "signoff": "string — a final line in your persona's voice"
+}
+
+Rules:
+- "fromPantry": true if it appears in the cupboard list above, false otherwise.
+- 4–8 steps. Keep each step under 25 words.
+- Stay in character throughout.`;
+}
+
+function safeParseRecipe(text) {
+  if (!text) return null;
+  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  try { return JSON.parse(cleaned); }
+  catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) { try { return JSON.parse(match[0]); } catch { return null; } }
+    return null;
+  }
+}
+
+// ─── Star symbol (nod to the Arrive North Star) ────────────────────────────
+function ArriveStar({ className = "w-4 h-4" }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 2 L13.6 9.2 L21 10 L15.5 14.4 L17.3 22 L12 17.8 L6.7 22 L8.5 14.4 L3 10 L10.4 9.2 Z"
+      />
+    </svg>
+  );
+}
+
+function CupboardCook() {
+  const [selected, setSelected] = useState(new Set());
+  const [custom, setCustom] = useState("");
+  const [customList, setCustomList] = useState([]);
+  const [persona, setPersona] = useState("Michelin Chef");
+  const [loading, setLoading] = useState(false);
+  const [recipe, setRecipe] = useState(null);
+  const [rawFallback, setRawFallback] = useState(null);
+  const [error, setError] = useState(null);
+
+  const isMock = window.__CUPBOARD_COOK_MOCK__ === true;
+  const totalSelected = selected.size + customList.length;
+  const personaMeta = PERSONAS[persona];
+
+  const toggleIngredient = (item) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item); else next.add(item);
+      return next;
+    });
+  };
+  const addCustom = () => {
+    const trimmed = custom.trim();
+    if (!trimmed) return;
+    setCustomList((prev) => Array.from(new Set([...prev, trimmed])));
+    setCustom("");
+  };
+  const removeCustom = (item) => setCustomList((prev) => prev.filter((i) => i !== item));
+  const clearAll = () => {
+    setSelected(new Set()); setCustomList([]); setRecipe(null); setRawFallback(null); setError(null);
+  };
+  const loadScenario = (s) => {
+    setSelected(new Set(s.ingredients)); setCustomList([]); setPersona(s.persona);
+    setRecipe(null); setRawFallback(null); setError(null);
+  };
+
+  const cook = async () => {
+    setLoading(true); setError(null); setRecipe(null); setRawFallback(null);
+    const prompt = buildPrompt({ ingredients: Array.from(selected), customItems: customList, persona });
+    try {
+      const response = await window.claude.complete(prompt);
+      const parsed = safeParseRecipe(response);
+      if (parsed) setRecipe(parsed); else setRawFallback(response);
+    } catch (e) {
+      setError(e.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canCook = totalSelected > 0 && !loading;
+
+  return (
+    <div className="min-h-screen bg-arrive-offwhite text-arrive-ink">
+      <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6 sm:py-12">
+        <header className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-arrive-p1"><ArriveStar className="w-8 h-8" /></span>
+            <div>
+              <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight text-arrive-p1 leading-none">Cupboard Cook</h1>
+              <p className="text-arrive-ink-700 mt-1 text-sm sm:text-base">Tell us what you've got. Pick a chef. Eat something.</p>
+            </div>
+          </div>
+          <span className={"inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] font-bold border rounded-full px-3 py-1 " + (isMock ? "bg-arrive-p4 text-arrive-p1 border-arrive-p3" : "bg-white text-arrive-p1 border-arrive-ink-200")}>
+            <span className={"w-2 h-2 rounded-full " + (isMock ? "bg-arrive-p2" : "bg-arrive-p1 animate-pulse")} />
+            {isMock ? "Mock mode" : "Live"}
+          </span>
+        </header>
+
+        <div className="grid lg:grid-cols-5 gap-6 mt-10">
+          <section className="lg:col-span-3 space-y-6">
+            <div className="bg-white border border-arrive-ink-200 rounded-xl p-3 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.12em] font-bold text-arrive-ink-500 mr-1">Demos</span>
+              {DEMO_SCENARIOS.map((s) => (
+                <button key={s.label} onClick={() => loadScenario(s)}
+                  className="text-xs font-medium bg-arrive-offwhite hover:bg-arrive-p4 border border-arrive-ink-200 hover:border-arrive-p1 hover:text-arrive-p1 text-arrive-ink rounded-full px-3 py-1 transition">
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white border border-arrive-ink-200 rounded-2xl p-5 shadow-sm">
+              <h2 className="font-display text-xs font-bold uppercase tracking-[0.14em] text-arrive-p1 mb-3">Pick your chef</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {Object.entries(PERSONAS).map(([name, meta]) => {
+                  const active = name === persona;
+                  return (
+                    <button key={name} onClick={() => setPersona(name)}
+                      className={"text-left rounded-xl border p-3 transition " +
+                        (active ? "border-arrive-p1 bg-arrive-p4 ring-2 ring-arrive-p1" : "border-arrive-ink-200 bg-white hover:border-arrive-p1")}>
+                      <div className="text-2xl">{meta.emoji}</div>
+                      <div className={"font-display font-bold text-sm mt-1 " + (active ? "text-arrive-p1-900" : "text-arrive-p1")}>{name}</div>
+                      <div className={"text-[11px] leading-snug mt-0.5 " + (active ? "text-arrive-p1" : "text-arrive-ink-700")}>{meta.tagline}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-white border border-arrive-ink-200 rounded-2xl p-5 shadow-sm">
+              <h2 className="font-display text-xs font-bold uppercase tracking-[0.14em] text-arrive-p1 mb-3">What's in your cupboard?</h2>
+              <div className="space-y-4">
+                {Object.entries(PANTRY).map(([category, items]) => (
+                  <div key={category}>
+                    <div className="text-xs font-bold text-arrive-ink mb-1.5">{category}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((item) => {
+                        const active = selected.has(item);
+                        return (
+                          <button key={item} onClick={() => toggleIngredient(item)}
+                            className={"text-xs rounded-full border px-2.5 py-1 transition " +
+                              (active
+                                ? "bg-arrive-p1 text-white border-arrive-p1 shadow-sm"
+                                : "bg-arrive-offwhite text-arrive-ink border-arrive-ink-200 hover:border-arrive-p1 hover:text-arrive-p1")}>
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white border border-arrive-ink-200 rounded-2xl p-5 shadow-sm">
+              <h2 className="font-display text-xs font-bold uppercase tracking-[0.14em] text-arrive-p1 mb-3">Something else?</h2>
+              <div className="flex gap-2">
+                <input value={custom} onChange={(e) => setCustom(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCustom()}
+                  placeholder='e.g. "leftover roast potatoes"'
+                  className="flex-1 rounded-lg border border-arrive-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-arrive-p3 focus:border-arrive-p1" />
+                <button onClick={addCustom} className="rounded-lg bg-arrive-p1 hover:bg-arrive-p1-700 text-white text-sm font-bold px-4 transition">Add</button>
+              </div>
+              {customList.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {customList.map((item) => (
+                    <span key={item} className="inline-flex items-center gap-1 text-xs bg-arrive-p4 text-arrive-p1 border border-arrive-p3 rounded-full pl-2.5 pr-1 py-0.5 font-medium">
+                      {item}
+                      <button onClick={() => removeCustom(item)} className="ml-1 w-4 h-4 rounded-full bg-arrive-p3 hover:bg-arrive-p1 hover:text-white text-arrive-p1 text-[10px] leading-none transition">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button onClick={cook} disabled={!canCook}
+                className="inline-flex items-center gap-2 rounded-full bg-arrive-p1 hover:bg-arrive-p1-700 disabled:bg-arrive-ink-200 disabled:text-arrive-ink-500 disabled:cursor-not-allowed text-white font-bold px-6 py-3 shadow-md transition">
+                {loading ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
+                    {personaMeta.emoji} thinking...
+                  </>
+                ) : (
+                  <>
+                    <ArriveStar className="w-4 h-4" /> Cook something ({totalSelected})
+                  </>
+                )}
+              </button>
+              <button onClick={clearAll} className="text-sm text-arrive-ink-700 hover:text-arrive-p1 underline underline-offset-2">Clear pantry</button>
+              <p className="text-xs text-arrive-ink-500 ml-auto">Persona: <span className="font-bold text-arrive-p1">{persona}</span></p>
+            </div>
+          </section>
+
+          <aside className="lg:col-span-2">
+            <ResultPanel loading={loading} recipe={recipe} rawFallback={rawFallback} error={error} persona={personaMeta} personaName={persona} />
+          </aside>
+        </div>
+
+        <footer className="mt-12 pt-6 border-t border-arrive-ink-200 flex items-center justify-between flex-wrap gap-2 text-xs text-arrive-ink-500">
+          <span className="flex items-center gap-1.5">
+            <span className="text-arrive-p1"><ArriveStar className="w-3 h-3" /></span>
+            Built in a Claude training hackathon. Branded for Arrive.
+          </span>
+          <span>Recipes generated by Claude — taste at your own risk.</span>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function ResultPanel({ loading, recipe, rawFallback, error, persona, personaName }) {
+  if (loading) {
+    return (
+      <div className="bg-white border border-arrive-ink-200 rounded-2xl p-6 shadow-sm h-full flex flex-col items-center justify-center text-center min-h-[320px]">
+        <div className="text-5xl animate-bounce">{persona.emoji}</div>
+        <p className="mt-4 text-arrive-ink-700 text-sm">Chef is thinking...</p>
+        <div className="mt-3 flex gap-1">
+          <span className="w-2 h-2 rounded-full bg-arrive-p1 animate-bounce" style={{ animationDelay: "0s" }} />
+          <span className="w-2 h-2 rounded-full bg-arrive-p3 animate-bounce" style={{ animationDelay: "0.15s" }} />
+          <span className="w-2 h-2 rounded-full bg-arrive-p4 animate-bounce" style={{ animationDelay: "0.3s" }} />
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-arrive-p2 rounded-2xl p-6 shadow-sm">
+        <h3 className="font-display font-bold text-arrive-p1">Couldn't cook that up</h3>
+        <p className="text-sm text-arrive-ink mt-2">{error}</p>
+      </div>
+    );
+  }
+  if (rawFallback) {
+    return (
+      <div className="bg-white border border-arrive-ink-200 rounded-2xl p-6 shadow-sm">
+        <h3 className="font-display font-bold text-arrive-p1">Recipe (raw)</h3>
+        <p className="text-xs text-arrive-ink-700 mt-1">Couldn't parse as structured JSON — showing raw chef output.</p>
+        <pre className="mt-3 text-xs text-arrive-ink whitespace-pre-wrap bg-arrive-offwhite rounded-lg p-3 border border-arrive-ink-200">{rawFallback}</pre>
+      </div>
+    );
+  }
+  if (!recipe) {
+    return (
+      <div className="bg-white border-2 border-dashed border-arrive-ink-200 rounded-2xl p-6 shadow-sm h-full flex flex-col items-center justify-center text-center min-h-[320px]">
+        <div className="text-arrive-p1"><ArriveStar className="w-12 h-12" /></div>
+        <p className="mt-3 text-arrive-ink-700 text-sm max-w-xs">Pick some ingredients and a chef, then hit <strong className="text-arrive-p1">Cook something</strong>.</p>
+      </div>
+    );
+  }
+  return (
+    <article className="bg-white border border-arrive-ink-200 rounded-2xl shadow-md overflow-hidden">
+      <div className="bg-arrive-p1 text-white p-5 relative overflow-hidden">
+        <span className="absolute -right-6 -top-6 text-arrive-p1-700 opacity-60"><ArriveStar className="w-32 h-32" /></span>
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.14em] font-bold text-arrive-p4 flex items-center gap-1.5">{persona.emoji} <span>{personaName}</span></div>
+            <h2 className="font-display text-xl sm:text-2xl font-black mt-1 leading-tight">{recipe.name || "Untitled dish"}</h2>
+          </div>
+          {recipe.timeMinutes ? (
+            <div className="text-right shrink-0">
+              <div className="font-display text-3xl font-black leading-none">{recipe.timeMinutes}</div>
+              <div className="text-[10px] uppercase tracking-[0.14em] font-bold text-arrive-p4 mt-1">min</div>
+            </div>
+          ) : null}
+        </div>
+        {recipe.intro && <p className="relative text-sm italic text-arrive-p4 mt-3 leading-snug">"{recipe.intro}"</p>}
+      </div>
+      <div className="p-5 space-y-5">
+        {Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0 && (
+          <div>
+            <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-arrive-p1 mb-2">Ingredients</h3>
+            <ul className="space-y-1">
+              {recipe.ingredients.map((ing, i) => (
+                <li key={i} className="flex items-baseline gap-2 text-sm">
+                  <span className={"inline-block w-2 h-2 rounded-full mt-1 shrink-0 " + (ing.fromPantry ? "bg-arrive-p1" : "bg-arrive-ink-200")} />
+                  <span className="text-arrive-ink"><span className="font-medium">{ing.amount ? ing.amount + " " : ""}</span>{ing.item}</span>
+                  {!ing.fromPantry && <span className="text-[10px] uppercase tracking-[0.1em] font-bold text-arrive-p1 bg-arrive-p4 rounded px-1.5 py-0.5 ml-1">grab this</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {Array.isArray(recipe.steps) && recipe.steps.length > 0 && (
+          <div>
+            <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-arrive-p1 mb-2">Method</h3>
+            <ol className="space-y-2">
+              {recipe.steps.map((step, i) => (
+                <li key={i} className="flex gap-3 text-sm text-arrive-ink">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-arrive-p4 text-arrive-p1 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                  <span className="pt-0.5">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        {recipe.signoff && (
+          <div className="border-t border-arrive-ink-200 pt-3">
+            <p className="text-sm italic text-arrive-ink-700">— {recipe.signoff}</p>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<CupboardCook />);
+  </script>
+</body>
+</html>
